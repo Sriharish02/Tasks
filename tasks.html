@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AO Task Tracker (Online)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body { font-family: Arial, sans-serif; background:#f3f3f3; padding:20px; }
+.container { max-width:800px; margin:auto; background:white; padding:20px; border-radius:10px; }
+input, button { width:100%; padding:10px; margin:5px 0; font-size:16px; }
+table { width:100%; margin-top:15px; border-collapse:collapse; }
+th, td { border:1px solid #ccc; padding:10px; text-align:center; }
+.btn { background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; }
+.btn:hover { background:#0056b3; }
+.danger { background:#dc3545; }
+.danger:hover { background:#b52a37; }
+.edit { background:#ff9900; }
+.edit:hover { background:#cc7a00; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>📘 AO Task Tracker (Online Version)</h2>
+
+  <input type="text" id="taskInput" placeholder="Enter AO Task (Example: AO-1234)" />
+
+  <button class="btn" onclick="addTask()">Add Task</button>
+
+  <input type="text" id="search" placeholder="Search tasks..." onkeyup="searchTasks()" />
+
+  <button class="btn" onclick="exportToExcel()">Export to Excel</button>
+
+  <table id="taskTable">
+    <tr>
+      <th>AO Task</th>
+      <th>Timestamp</th>
+      <th>Actions</th>
+    </tr>
+  </table>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbyeV86TafTwQYYfSMAENCsiCOsSPgz7xWRTGF-ZxUn9k1GJfAAnU_cpfR0GKzu16LEMzA/exec";
+
+let tasks = [];
+
+// Load tasks on startup
+window.onload = loadTasks;
+
+async function loadTasks() {
+  let res = await fetch(API + "?action=get");
+  tasks = await res.json();
+  renderTable(tasks);
+}
+
+async function addTask() {
+  const task = document.getElementById("taskInput").value.trim();
+  if (!task) return alert("Enter AO Task!");
+
+  await fetch(API + "?action=add&task=" + encodeURIComponent(task));
+
+  document.getElementById("taskInput").value = "";
+  loadTasks();
+}
+
+function renderTable(list) {
+  const table = document.getElementById("taskTable");
+  table.innerHTML = `
+    <tr>
+      <th>AO Task</th>
+      <th>Timestamp</th>
+      <th>Actions</th>
+    </tr>
+  `;
+
+  list.forEach((t, i) => {
+    table.innerHTML += `
+      <tr>
+        <td>${t.task}</td>
+        <td>${new Date(t.timestamp).toLocaleString()}</td>
+        <td>
+          <button class="edit" onclick="editTask(${i})">Edit</button>
+          <button class="danger" onclick="deleteTask(${i})">Delete</button>
+        </td>
+      </tr>`;
+  });
+}
+
+async function editTask(i) {
+  const updated = prompt("Edit Task", tasks[i].task);
+  if (!updated) return;
+
+  await fetch(API + "?action=edit&id=" + tasks[i].id + "&task=" + encodeURIComponent(updated));
+
+  loadTasks();
+}
+
+async function deleteTask(i) {
+  if (!confirm("Delete this task?")) return;
+
+  await fetch(API + "?action=delete&id=" + tasks[i].id);
+
+  loadTasks();
+}
+
+function searchTasks() {
+  let text = document.getElementById("search").value.toLowerCase();
+  let filtered = tasks.filter(t => t.task.toLowerCase().includes(text));
+  renderTable(filtered);
+}
+
+function exportToExcel() {
+  let csv = "AO Task,Timestamp\n";
+  tasks.forEach(t => csv += `${t.task},${t.timestamp}\n`);
+
+  let blob = new Blob([csv], { type: "text/csv" });
+  let url = URL.createObjectURL(blob);
+
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "AO_Task_History.csv";
+  a.click();
+}
+
+// Hourly reminder
+setInterval(() => {
+  alert("⏰ Hourly Reminder: Please update your AO task!");
+}, 60 * 60 * 1000);
+</script>
+
+</body>
+</html>
